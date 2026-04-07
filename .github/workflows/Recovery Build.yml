@@ -45,7 +45,7 @@ on:
 jobs:
   build:
     if: github.event.repository.owner.id == github.event.sender.id
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
@@ -62,19 +62,52 @@ jobs:
         echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}.img"
         echo "::endgroup::"
  
-    # You might want to Checkout your repo first, but not mandatory
     - name: Check Out
       uses: actions/checkout@v3
-    # Cleanup The Actions Workspace Using Custom Composite Run Actions
+      
     - name: Cleanup
       uses: rokibhasansagar/slimhub_actions@main
-      # That's it! Now use your normal steps
 
     - name: Prepare the environment
       run: |
         sudo apt update
         sudo apt -y upgrade
-        sudo apt -y install gperf gcc-multilib gcc-10-multilib g++-multilib g++-10-multilib libc6-dev lib32ncurses5-dev x11proto-core-dev libx11-dev tree lib32z-dev libgl1-mesa-dev libxml2-utils xsltproc bc ccache lib32readline-dev lib32z1-dev liblz4-tool libncurses5-dev libsdl1.2-dev libwxgtk3.0-gtk3-dev libxml2 lzop pngcrush schedtool squashfs-tools imagemagick libbz2-dev lzma ncftp qemu-user-static libstdc++-10-dev libncurses5 python3
+        sudo apt -y install \
+          gperf \
+          gcc-multilib \
+          gcc-10-multilib \
+          g++-multilib \
+          g++-10-multilib \
+          libc6-dev \
+          lib32ncurses5-dev \
+          x11proto-core-dev \
+          libx11-dev \
+          tree \
+          lib32z-dev \
+          libgl1-mesa-dev \
+          libxml2-utils \
+          xsltproc \
+          bc \
+          ccache \
+          lib32readline-dev \
+          lib32z1-dev \
+          liblz4-tool \
+          libncurses5-dev \
+          libsdl1.2-dev \
+          libwxgtk3.0-gtk3-dev \
+          libxml2 \
+          lzop \
+          pngcrush \
+          schedtool \
+          squashfs-tools \
+          imagemagick \
+          libbz2-dev \
+          lzma \
+          ncftp \
+          qemu-user-static \
+          libstdc++-10-dev \
+          libncurses5 \
+          python3
 
     - name: Install OpenJDK
       uses: actions/setup-java@v3
@@ -90,8 +123,7 @@ jobs:
       with:
           ssh-private-key: |
             ${{ secrets.SSH_PRIVATE_KEY }}
-
-
+            
     - name: Install repo
       run: |
         mkdir ~/bin
@@ -137,10 +169,13 @@ jobs:
 
     - name: Sync Device Dependencies
       run: |
-        bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
-        repo sync -j$(nproc --all)
+        if [ -f "${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies" ]; then
+          bash ${GITHUB_WORKSPACE}/scripts/convert.sh ${{ github.event.inputs.DEVICE_PATH }}/${{ steps.buildtree.outputs.value }}.dependencies
+          repo sync -j$(nproc --all)
+        fi
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
       continue-on-error: true
+      shell: bash
 
     - name: Set Swap Space
       uses: pierotofy/set-swap-space@master
@@ -151,7 +186,9 @@ jobs:
       run: |
         source build/envsetup.sh
         export ALLOW_MISSING_DEPENDENCIES=true
-        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+        lunch ${{ github.event.inputs.MAKEFILE_NAME }}-eng
+        make clean
+        make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
       working-directory: ${{ steps.pwd.outputs.workspace-folder }}
 
     - name: Upload to Release
